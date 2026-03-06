@@ -78,6 +78,19 @@ CREATE TABLE IF NOT EXISTS documents (
 ) ENGINE=InnoDB;
 
 -- -----------------------------------------------------------
+-- Contact Messages
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS contact_messages (
+  message_id      INT           NOT NULL AUTO_INCREMENT,
+  name            VARCHAR(150)  NOT NULL,
+  email           VARCHAR(150)  NOT NULL,
+  subject         VARCHAR(255)  NOT NULL,
+  message         TEXT          NOT NULL,
+  submitted_date  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (message_id)
+) ENGINE=InnoDB;
+
+-- -----------------------------------------------------------
 -- Reports
 -- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS reports (
