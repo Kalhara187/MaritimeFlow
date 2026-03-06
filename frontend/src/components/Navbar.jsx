@@ -11,6 +11,7 @@ import { Menu, X, Anchor } from 'lucide-react'
 const navLinks = [
   { label: 'Home', to: '/' },
   { label: 'Features', to: '/features' },
+  { label: 'Roadmap', to: '/future-features' },
   { label: 'About', to: '/about' },
   { label: 'Contact', to: '/contact' },
 ]
