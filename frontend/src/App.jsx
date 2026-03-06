@@ -10,6 +10,7 @@ import AboutPage from './pages/About'
 import FeaturesPage from './pages/Features'
 import ContactPage from './pages/Contact'
 import Login from './pages/Login'
+import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 
 function App() {
@@ -25,8 +26,9 @@ function App() {
           <Route path="/contact" element={<ContactPage />} />
         </Route>
 
-        {/* Auth page — no shared layout */}
+        {/* Auth pages — no shared layout */}
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
         {/* Protected route — redirects to /login if not authenticated */}
         <Route
