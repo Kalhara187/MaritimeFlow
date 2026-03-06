@@ -8,6 +8,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import LandingPage from './pages/LandingPage'
 import AboutPage from './pages/About'
 import FeaturesPage from './pages/Features'
+import FutureFeaturesPage from './pages/FutureFeatures'
 import ContactPage from './pages/Contact'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -23,6 +24,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/features" element={<FeaturesPage />} />
+          <Route path="/future-features" element={<FutureFeaturesPage />} />
           <Route path="/contact" element={<ContactPage />} />
         </Route>
 
