@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Anchor, Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react'
 
-const API_BASE = 'http://localhost:5000/api'
+const API_BASE = '/api'
 
 const Login = () => {
   const navigate = useNavigate()
