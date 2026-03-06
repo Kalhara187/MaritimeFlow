@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Anchor, User, Mail, AtSign, Lock, Eye, EyeOff, UserPlus } from 'lucide-react'
 
-const API_BASE = 'http://localhost:5000/api'
+const API_BASE = '/api'
 
 const ROLES = [
   { value: 'viewer',   label: 'Viewer'   },
