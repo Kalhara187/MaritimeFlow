@@ -3,6 +3,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Anchor, Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react'
 
+const API_BASE = 'http://localhost:5000/api'
+
 const Login = () => {
   const navigate = useNavigate()
   const location = useLocation()
@@ -25,13 +27,25 @@ const Login = () => {
       return
     }
     setLoading(true)
-    // TODO: Replace with real API call
-    setTimeout(() => {
-      // Demo: store a fake token and navigate
-      localStorage.setItem('auth_token', 'demo_token')
-      setLoading(false)
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: form.email, password: form.password }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.message || 'Login failed. Please try again.')
+        return
+      }
+      localStorage.setItem('auth_token', data.token)
+      localStorage.setItem('auth_user', JSON.stringify(data.user))
       navigate(from, { replace: true })
-    }, 1000)
+    } catch {
+      setError('Unable to reach the server. Please check your connection.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -142,8 +156,8 @@ const Login = () => {
           {/* Divider */}
           <p className="text-center text-gray-500 text-sm mt-6">
             Don&apos;t have an account?{' '}
-            <Link to="/" className="text-[#0B3D91] font-semibold hover:underline">
-              Contact Admin
+            <Link to="/register" className="text-[#0B3D91] font-semibold hover:underline">
+              Register
             </Link>
           </p>
         </div>

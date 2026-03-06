@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   id          INT          NOT NULL AUTO_INCREMENT,
   name        VARCHAR(100) NOT NULL,
   email       VARCHAR(150) NOT NULL UNIQUE,
+  username    VARCHAR(100) NOT NULL UNIQUE,
   password    VARCHAR(255) NOT NULL,
   role        ENUM('admin','operator','viewer') NOT NULL DEFAULT 'viewer',
   created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
