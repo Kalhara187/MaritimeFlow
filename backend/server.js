@@ -12,6 +12,7 @@ const shipmentRoutes   = require('./routes/shipments')
 const containerRoutes  = require('./routes/containers')
 const documentRoutes   = require('./routes/documents')
 const reportRoutes     = require('./routes/reports')
+const contactRoutes    = require('./routes/contact')
 
 const app  = express()
 const PORT = process.env.PORT || 5000
@@ -28,6 +29,7 @@ app.use('/api/shipments',  shipmentRoutes)
 app.use('/api/containers', containerRoutes)
 app.use('/api/documents',  documentRoutes)
 app.use('/api/reports',    reportRoutes)
+app.use('/api/contact',    contactRoutes)
 
 // ── Health check ────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

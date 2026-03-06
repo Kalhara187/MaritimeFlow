@@ -21,22 +21,41 @@ const contactInfo = [
 ]
 
 const Contact = () => {
-  const [form, setForm] = useState({ name: '', email: '', message: '' })
+  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
+    setError('')
+
+    try {
+      const res = await fetch('http://localhost:5000/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.message || 'Something went wrong. Please try again.')
+        return
+      }
+
       setSubmitted(true)
-      setForm({ name: '', email: '', message: '' })
-    }, 1500)
+      setForm({ name: '', email: '', subject: '', message: '' })
+    } catch {
+      setError('Unable to reach the server. Please try again later.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -80,7 +99,7 @@ const Contact = () => {
                   Thank you for reaching out. We'll respond within 24 hours.
                 </p>
                 <button
-                  onClick={() => setSubmitted(false)}
+                  onClick={() => { setSubmitted(false); setError('') }}
                   className="btn-primary text-sm py-2.5 px-6"
                 >
                   Send Another
@@ -125,6 +144,23 @@ const Contact = () => {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Subject <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="subject"
+                    value={form.subject}
+                    onChange={handleChange}
+                    required
+                    placeholder="e.g. Shipment enquiry, Technical support"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-200 
+                               focus:outline-none focus:ring-2 focus:ring-[#0B3D91]/30 
+                               focus:border-[#0B3D91] transition-colors text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                     Message <span className="text-red-500">*</span>
                   </label>
                   <textarea
@@ -139,6 +175,13 @@ const Contact = () => {
                                focus:border-[#0B3D91] transition-colors text-sm"
                   />
                 </div>
+
+                {error && (
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-200 
+                                rounded-lg px-4 py-2.5">
+                    {error}
+                  </p>
+                )}
 
                 <button
                   type="submit"
