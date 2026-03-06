@@ -5,6 +5,7 @@ import HowItWorks from '../components/HowItWorks'
 import Modules from '../components/Modules'
 import DashboardPreview from '../components/DashboardPreview'
 import Security from '../components/Security'
+import FutureFeatures from '../components/FutureFeatures'
 import About from '../components/About'
 import Contact from '../components/Contact'
 
@@ -21,6 +22,7 @@ const LandingPage = () => {
       <Modules />
       <DashboardPreview />
       <Security />
+      <FutureFeatures />
       <About />
       <Contact />
     </>
