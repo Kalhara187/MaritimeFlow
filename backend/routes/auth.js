@@ -65,4 +65,71 @@ router.post('/login', async (req, res) => {
   }
 })
 
+// POST /api/auth/forgot-password
+// Returns a short-lived reset token. In production this token would be emailed;
+// here it is returned directly so the frontend can display it (dev mode).
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body
+  if (!email)
+    return res.status(400).json({ message: 'Email is required.' })
+
+  try {
+    const [rows] = await db.query('SELECT id, password FROM users WHERE email = ?', [email])
+    if (rows.length === 0)
+      return res.status(404).json({ message: 'No account found with that email address.' })
+
+    const user = rows[0]
+    // sig = last 8 chars of current hash — token is invalidated the moment the password changes
+    const sig = user.password.slice(-8)
+    const resetToken = jwt.sign(
+      { id: user.id, purpose: 'reset', sig },
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: '15m' }
+    )
+    res.json({
+      message: 'A password reset link has been generated. In production this would be emailed.',
+      resetToken,
+    })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// POST /api/auth/reset-password
+router.post('/reset-password', async (req, res) => {
+  const { token, password } = req.body
+  if (!token || !password)
+    return res.status(400).json({ message: 'Token and new password are required.' })
+
+  if (password.length < 6)
+    return res.status(400).json({ message: 'Password must be at least 6 characters.' })
+
+  try {
+    let decoded
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret')
+    } catch {
+      return res.status(400).json({ message: 'Reset link is invalid or has expired. Please request a new one.' })
+    }
+
+    if (decoded.purpose !== 'reset')
+      return res.status(400).json({ message: 'Invalid reset token.' })
+
+    const [rows] = await db.query('SELECT id, password FROM users WHERE id = ?', [decoded.id])
+    if (rows.length === 0)
+      return res.status(404).json({ message: 'User not found.' })
+
+    // Verify the password has not already been changed (single-use guarantee)
+    if (rows[0].password.slice(-8) !== decoded.sig)
+      return res.status(400).json({ message: 'This reset link has already been used. Please request a new one.' })
+
+    const hash = await bcrypt.hash(password, 10)
+    await db.query('UPDATE users SET password = ? WHERE id = ?', [hash, decoded.id])
+
+    res.json({ message: 'Password updated successfully. You can now log in with your new password.' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
 module.exports = router
