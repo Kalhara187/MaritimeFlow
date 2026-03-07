@@ -29,17 +29,18 @@ CREATE TABLE IF NOT EXISTS users (
 -- Shipments
 -- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS shipments (
-  id              INT          NOT NULL AUTO_INCREMENT,
-  tracking_number VARCHAR(50)  NOT NULL UNIQUE,
-  origin          VARCHAR(150) NOT NULL,
-  destination     VARCHAR(150) NOT NULL,
-  status          ENUM('pending','in_transit','arrived','delivered','cancelled')
-                               NOT NULL DEFAULT 'pending',
+  id                INT          NOT NULL AUTO_INCREMENT,
+  tracking_number   VARCHAR(50)  NOT NULL UNIQUE,
+  vessel_name       VARCHAR(150),
+  origin            VARCHAR(150) NOT NULL,
+  destination       VARCHAR(150) NOT NULL,
+  status            ENUM('pending','in_transit','arrived','delivered','cancelled')
+                                 NOT NULL DEFAULT 'pending',
   estimated_arrival DATE,
   actual_arrival    DATE,
-  created_by      INT          NOT NULL,
-  created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  created_by        INT          NOT NULL,
+  created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
@@ -54,7 +55,7 @@ CREATE TABLE IF NOT EXISTS containers (
   type            ENUM('20ft','40ft','40ft_hc','reefer','open_top','flat_rack')
                                NOT NULL DEFAULT '20ft',
   weight_kg       DECIMAL(10,2),
-  status          ENUM('empty','loaded','in_transit','offloaded') NOT NULL DEFAULT 'empty',
+  status          ENUM('at_sea','at_port','under_inspection','cleared','released') NOT NULL DEFAULT 'at_port',
   created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -103,3 +104,15 @@ CREATE TABLE IF NOT EXISTS reports (
   PRIMARY KEY (id),
   FOREIGN KEY (generated_by) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
+
+-- =============================================================
+-- Migration: run these on existing databases
+-- =============================================================
+-- ALTER TABLE shipments
+--   ADD COLUMN vessel_name VARCHAR(150) AFTER tracking_number;
+--
+-- ALTER TABLE containers
+--   MODIFY COLUMN status
+--     ENUM('at_sea','at_port','under_inspection','cleared','released')
+--     NOT NULL DEFAULT 'at_port';
+-- UPDATE containers SET status = 'at_port' WHERE status NOT IN ('at_sea','at_port','under_inspection','cleared','released');

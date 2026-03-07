@@ -36,15 +36,15 @@ router.get('/:id', auth(), async (req, res) => {
 
 // POST /api/shipments
 router.post('/', auth(['admin', 'operator']), async (req, res) => {
-  const { tracking_number, origin, destination, status, estimated_arrival } = req.body
+  const { tracking_number, vessel_name, origin, destination, status, estimated_arrival } = req.body
   if (!tracking_number || !origin || !destination)
     return res.status(400).json({ message: 'tracking_number, origin and destination are required.' })
 
   try {
     const [result] = await db.query(
-      `INSERT INTO shipments (tracking_number, origin, destination, status, estimated_arrival, created_by)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [tracking_number, origin, destination, status || 'pending', estimated_arrival || null, req.user.id]
+      `INSERT INTO shipments (tracking_number, vessel_name, origin, destination, status, estimated_arrival, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [tracking_number, vessel_name || null, origin, destination, status || 'pending', estimated_arrival || null, req.user.id]
     )
     res.status(201).json({ message: 'Shipment created.', shipmentId: result.insertId })
   } catch (err) {
@@ -54,13 +54,13 @@ router.post('/', auth(['admin', 'operator']), async (req, res) => {
 
 // PUT /api/shipments/:id
 router.put('/:id', auth(['admin', 'operator']), async (req, res) => {
-  const { origin, destination, status, estimated_arrival, actual_arrival } = req.body
+  const { vessel_name, origin, destination, status, estimated_arrival, actual_arrival } = req.body
   try {
     await db.query(
       `UPDATE shipments
-       SET origin=?, destination=?, status=?, estimated_arrival=?, actual_arrival=?
+       SET vessel_name=?, origin=?, destination=?, status=?, estimated_arrival=?, actual_arrival=?
        WHERE id=?`,
-      [origin, destination, status, estimated_arrival || null, actual_arrival || null, req.params.id]
+      [vessel_name || null, origin, destination, status, estimated_arrival || null, actual_arrival || null, req.params.id]
     )
     res.json({ message: 'Shipment updated.' })
   } catch (err) {

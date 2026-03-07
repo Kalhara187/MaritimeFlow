@@ -39,14 +39,14 @@ router.get('/:id', auth(), async (req, res) => {
 // POST /api/documents
 router.post('/', auth(['admin', 'operator']), async (req, res) => {
   const { shipment_id, doc_type, file_name, file_path } = req.body
-  if (!doc_type || !file_name || !file_path)
-    return res.status(400).json({ message: 'doc_type, file_name and file_path are required.' })
+  if (!doc_type || !file_name)
+    return res.status(400).json({ message: 'doc_type and file_name are required.' })
 
   try {
     const [result] = await db.query(
       `INSERT INTO documents (shipment_id, uploaded_by, doc_type, file_name, file_path)
        VALUES (?, ?, ?, ?, ?)`,
-      [shipment_id || null, req.user.id, doc_type, file_name, file_path]
+      [shipment_id || null, req.user.id, doc_type, file_name, file_path || '']
     )
     res.status(201).json({ message: 'Document saved.', documentId: result.insertId })
   } catch (err) {
