@@ -153,7 +153,7 @@ export default function ShipmentsView({ user }) {
           <div className="py-16 text-center text-gray-400 text-sm">Loading shipments…</div>
         ) : filtered.length === 0 ? (
           <div className="py-16 text-center text-gray-400 text-sm">
-            {search ? 'No results match your search.' : 'No shipments yet. Click "New Shipment" to add one.'}
+            {search ? 'No results match your search.' : canEdit ? 'No shipments yet. Click "New Shipment" to add one.' : 'No shipment records found.'}
           </div>
         ) : (
           <div className="overflow-x-auto">

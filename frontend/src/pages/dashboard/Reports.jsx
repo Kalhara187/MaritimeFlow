@@ -152,7 +152,7 @@ export default function ReportsView({ user }) {
           <div className="py-16 text-center text-gray-400 text-sm">Loading reports…</div>
         ) : filtered.length === 0 ? (
           <div className="py-16 text-center text-gray-400 text-sm">
-            {search ? 'No reports match your search.' : 'No reports generated yet. Click "Generate Report" to create one.'}
+            {search ? 'No reports match your search.' : canEdit ? 'No reports generated yet. Click "Generate Report" to create one.' : 'No reports available yet.'}
           </div>
         ) : (
           <div className="overflow-x-auto">

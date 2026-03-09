@@ -171,7 +171,7 @@ export default function DocumentsView({ user }) {
           <div className="py-16 text-center text-gray-400 text-sm">Loading documents…</div>
         ) : filtered.length === 0 ? (
           <div className="py-16 text-center text-gray-400 text-sm">
-            {search || filterType ? 'No documents match your filters.' : 'No documents yet. Click "Add Document" to upload one.'}
+            {search || filterType ? 'No documents match your filters.' : canEdit ? 'No documents yet. Click "Add Document" to upload one.' : 'No documents found.'}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -201,8 +201,13 @@ export default function DocumentsView({ user }) {
                     <td className="px-5 py-3 text-gray-500">
                       {r.uploaded_at ? new Date(r.uploaded_at).toLocaleDateString() : '—'}
                     </td>
-                    <td className="px-5 py-3 text-gray-400 text-xs truncate max-w-[120px]">
-                      {r.file_path || '—'}
+                    <td className="px-5 py-3 text-xs truncate max-w-[120px]">
+                      {r.file_path
+                        ? <a href={r.file_path} target="_blank" rel="noopener noreferrer"
+                             className="text-[#0B3D91] hover:underline">
+                            {r.file_path}
+                          </a>
+                        : <span className="text-gray-400">—</span>}
                     </td>
                     {canDelete && (
                       <td className="px-5 py-3 text-right">

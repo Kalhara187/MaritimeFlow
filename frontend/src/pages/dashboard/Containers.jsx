@@ -207,7 +207,7 @@ export default function ContainersView({ user }) {
           <div className="py-16 text-center text-gray-400 text-sm">Loading containers…</div>
         ) : filtered.length === 0 ? (
           <div className="py-16 text-center text-gray-400 text-sm">
-            {search || filterStatus ? 'No containers match your filters.' : 'No containers yet. Click "New Container" to add one.'}
+            {search || filterStatus ? 'No containers match your filters.' : canEdit ? 'No containers yet. Click "New Container" to add one.' : 'No container records found.'}
           </div>
         ) : (
           <div className="overflow-x-auto">

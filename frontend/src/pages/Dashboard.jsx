@@ -116,7 +116,9 @@ const Dashboard = () => {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-medium truncate">{user.name || 'User'}</p>
-              <p className="text-blue-200 text-xs capitalize">{user.role || 'viewer'}</p>
+              <p className="text-blue-200 text-xs capitalize">
+                {user.role === 'viewer' ? 'View Only' : (user.role || 'viewer')}
+              </p>
             </div>
           </div>
           <button
@@ -153,7 +155,12 @@ const Dashboard = () => {
           </div>
           <p className="text-sm text-gray-500 hidden sm:block">
             Welcome, <span className="font-medium text-gray-800">{user.name}</span>
-            <span className="ml-2 text-xs bg-blue-100 text-[#0B3D91] px-2 py-0.5 rounded-full capitalize">{user.role}</span>
+            <span className={`ml-2 text-xs px-2 py-0.5 rounded-full capitalize
+              ${ user.role === 'admin'    ? 'bg-red-100 text-red-700'
+               : user.role === 'operator' ? 'bg-blue-100 text-[#0B3D91]'
+               : 'bg-gray-100 text-gray-500' }`}>
+              {user.role === 'viewer' ? 'View Only' : user.role}
+            </span>
           </p>
         </header>
 
