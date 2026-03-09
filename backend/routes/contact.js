@@ -1,8 +1,31 @@
 const router = require('express').Router()
 const db     = require('../config/db')
+const auth   = require('../middleware/auth')
 
 // Basic email format validator (no external dependency needed)
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
+// GET /api/contact — admin views all submitted contact messages
+router.get('/', auth(['admin']), async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT * FROM contact_messages ORDER BY submitted_date DESC'
+    )
+    res.json(rows)
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// DELETE /api/contact/:id — admin deletes a contact message
+router.delete('/:id', auth(['admin']), async (req, res) => {
+  try {
+    await db.query('DELETE FROM contact_messages WHERE message_id = ?', [req.params.id])
+    res.json({ message: 'Message deleted.' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
 
 // POST /api/contact
 router.post('/', async (req, res) => {

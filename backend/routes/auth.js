@@ -25,9 +25,11 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ message: 'Username already taken.' })
 
     const hash = await bcrypt.hash(password, 10)
+    const allowedRoles = ['viewer', 'operator']
+    const assignedRole = allowedRoles.includes(role) ? role : 'viewer'
     const [result] = await db.query(
       'INSERT INTO users (name, email, username, password, role) VALUES (?, ?, ?, ?, ?)',
-      [name, email, username, hash, role || 'viewer']
+      [name, email, username, hash, assignedRole]
     )
     res.status(201).json({ message: 'User registered successfully.', userId: result.insertId })
   } catch (err) {
