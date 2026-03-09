@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react'
-import { Plus, Trash2, X, Search, FileText } from 'lucide-react'
+import React, { useEffect, useState, useRef } from 'react'
+import { Plus, Trash2, X, Search, FileText, Upload, ExternalLink } from 'lucide-react'
 
 const authHeaders = () => ({
   'Content-Type': 'application/json',
@@ -39,8 +39,10 @@ export default function DocumentsView({ user }) {
   const [filterType, setFilter]   = useState('')
   const [showModal, setShowModal] = useState(false)
   const [form, setForm]           = useState(EMPTY)
+  const [fileInput, setFileInput] = useState(null)   // selected File object
   const [saving, setSaving]       = useState(false)
   const [formError, setFormError] = useState('')
+  const fileRef                   = useRef(null)
 
   const canEdit   = user.role === 'admin' || user.role === 'operator'
   const canDelete = user.role === 'admin'
@@ -68,11 +70,18 @@ export default function DocumentsView({ user }) {
 
   const openCreate = () => {
     setForm(EMPTY)
+    setFileInput(null)
+    if (fileRef.current) fileRef.current.value = ''
     setFormError('')
     setShowModal(true)
   }
 
   const handleChange = e => setForm(p => ({ ...p, [e.target.name]: e.target.value }))
+  const handleFileChange = e => {
+    const f = e.target.files?.[0] || null
+    setFileInput(f)
+    if (f && !form.file_name) setForm(p => ({ ...p, file_name: f.name.replace(/\.[^.]+$/, '') }))
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -83,18 +92,33 @@ export default function DocumentsView({ user }) {
     setSaving(true)
     setFormError('')
     try {
-      const payload = {
-        doc_type:    form.doc_type,
-        file_name:   form.file_name.trim(),
-        file_path:   form.file_path.trim() || '',
-        shipment_id: form.shipment_id ? parseInt(form.shipment_id) : null,
+      let res, data
+      if (fileInput) {
+        // multipart upload
+        const fd = new FormData()
+        fd.append('doc_type',    form.doc_type)
+        fd.append('file_name',   form.file_name.trim())
+        if (form.shipment_id) fd.append('shipment_id', form.shipment_id)
+        fd.append('file', fileInput)
+        res  = await fetch('/api/documents', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
+          body: fd,
+        })
+      } else {
+        const payload = {
+          doc_type:    form.doc_type,
+          file_name:   form.file_name.trim(),
+          file_path:   form.file_path.trim() || '',
+          shipment_id: form.shipment_id ? parseInt(form.shipment_id) : null,
+        }
+        res = await fetch('/api/documents', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify(payload),
+        })
       }
-      const res  = await fetch('/api/documents', {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify(payload),
-      })
-      const data = await res.json()
+      data = await res.json()
       if (!res.ok) { setFormError(data.message || 'Save failed.'); return }
       setShowModal(false)
       load()
@@ -201,12 +225,17 @@ export default function DocumentsView({ user }) {
                     <td className="px-5 py-3 text-gray-500">
                       {r.uploaded_at ? new Date(r.uploaded_at).toLocaleDateString() : '—'}
                     </td>
-                    <td className="px-5 py-3 text-xs truncate max-w-[120px]">
+                    <td className="px-5 py-3 text-xs truncate max-w-[140px]">
                       {r.file_path
-                        ? <a href={r.file_path} target="_blank" rel="noopener noreferrer"
-                             className="text-[#0B3D91] hover:underline">
-                            {r.file_path}
-                          </a>
+                        ? r.file_path.startsWith('/uploads/')
+                          ? <a href={r.file_path} target="_blank" rel="noopener noreferrer"
+                               className="flex items-center gap-1 text-[#0B3D91] hover:underline">
+                              <ExternalLink className="w-3 h-3" /> Download
+                            </a>
+                          : <a href={r.file_path} target="_blank" rel="noopener noreferrer"
+                               className="text-[#0B3D91] hover:underline truncate block">
+                              {r.file_path}
+                            </a>
                         : <span className="text-gray-400">—</span>}
                     </td>
                     {canDelete && (
@@ -284,14 +313,41 @@ export default function DocumentsView({ user }) {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Reference / File Path</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Upload File</label>
+                <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed
+                                  border-gray-200 rounded-lg p-4 cursor-pointer hover:border-[#0B3D91]/40
+                                  hover:bg-blue-50/30 transition-colors">
+                  <Upload className="w-5 h-5 text-gray-400" />
+                  <span className="text-xs text-gray-500">
+                    {fileInput ? fileInput.name : 'Click to choose a file (PDF, Word, Excel, image — max 10 MB)'}
+                  </span>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    className="sr-only"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt"
+                    onChange={handleFileChange}
+                  />
+                </label>
+              </div>
+
+              <div className="relative flex items-center gap-3">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-xs text-gray-400">or enter a reference link / path</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Reference / URL</label>
                 <input
                   name="file_path"
                   value={form.file_path}
                   onChange={handleChange}
-                  placeholder="Optional — URL, path, or reference number"
+                  disabled={!!fileInput}
+                  placeholder="Optional — URL or reference number"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm
-                             focus:outline-none focus:ring-2 focus:ring-[#0B3D91]/30"
+                             focus:outline-none focus:ring-2 focus:ring-[#0B3D91]/30
+                             disabled:bg-gray-50 disabled:text-gray-400"
                 />
               </div>
 
