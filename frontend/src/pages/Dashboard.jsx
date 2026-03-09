@@ -1,17 +1,24 @@
 import React, { useState } from 'react'
-import { Anchor, LayoutDashboard, Ship, Package, FileText, BarChart2, LogOut, Menu, X } from 'lucide-react'
-import Overview    from './dashboard/Overview'
+import { Anchor, LayoutDashboard, Ship, Package, FileText, BarChart2, LogOut, Menu, X, Users, MessageSquare } from 'lucide-react'
+import Overview       from './dashboard/Overview'
 import ShipmentsView  from './dashboard/Shipments'
 import ContainersView from './dashboard/Containers'
 import DocumentsView  from './dashboard/Documents'
 import ReportsView    from './dashboard/Reports'
+import AdminUsers     from './dashboard/AdminUsers'
+import AdminMessages  from './dashboard/AdminMessages'
 
-const NAV = [
+const BASE_NAV = [
   { id: 'overview',   label: 'Dashboard',  Icon: LayoutDashboard },
   { id: 'shipments',  label: 'Shipments',  Icon: Ship },
   { id: 'containers', label: 'Containers', Icon: Package },
   { id: 'documents',  label: 'Documents',  Icon: FileText },
   { id: 'reports',    label: 'Reports',    Icon: BarChart2 },
+]
+
+const ADMIN_NAV = [
+  { id: 'users',    label: 'User Management', Icon: Users },
+  { id: 'messages', label: 'Contact Messages', Icon: MessageSquare },
 ]
 
 const handleLogout = () => {
@@ -24,6 +31,9 @@ const Dashboard = () => {
   const [activeView, setActiveView] = useState('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const user = JSON.parse(localStorage.getItem('auth_user') || '{}')
+  const isAdmin = user.role === 'admin'
+
+  const NAV = isAdmin ? [...BASE_NAV, ...ADMIN_NAV] : BASE_NAV
 
   const views = {
     overview:   <Overview   user={user} onNavigate={setActiveView} />,
@@ -31,6 +41,8 @@ const Dashboard = () => {
     containers: <ContainersView user={user} />,
     documents:  <DocumentsView  user={user} />,
     reports:    <ReportsView    user={user} />,
+    users:      <AdminUsers     currentUserId={user.id} />,
+    messages:   <AdminMessages />,
   }
 
   const currentLabel = NAV.find(n => n.id === activeView)?.label || 'Dashboard'
@@ -56,7 +68,7 @@ const Dashboard = () => {
 
         {/* Nav */}
         <nav className="flex-1 px-4 py-6 space-y-1">
-          {NAV.map(({ id, label, Icon }) => (
+          {BASE_NAV.map(({ id, label, Icon }) => (
             <button
               key={id}
               onClick={() => { setActiveView(id); setSidebarOpen(false) }}
@@ -70,6 +82,30 @@ const Dashboard = () => {
               {label}
             </button>
           ))}
+
+          {isAdmin && (
+            <>
+              <div className="pt-3 pb-1 px-4">
+                <p className="text-blue-300/60 text-xs font-semibold uppercase tracking-wider">
+                  Administration
+                </p>
+              </div>
+              {ADMIN_NAV.map(({ id, label, Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => { setActiveView(id); setSidebarOpen(false) }}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm
+                              font-medium transition-colors text-left
+                              ${activeView === id
+                                ? 'bg-white/20 text-white'
+                                : 'text-blue-200 hover:bg-white/10 hover:text-white'}`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </button>
+              ))}
+            </>
+          )}
         </nav>
 
         {/* User + Logout */}

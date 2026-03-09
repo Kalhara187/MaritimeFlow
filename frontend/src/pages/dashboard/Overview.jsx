@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Ship, Package, FileText, BarChart2, TrendingUp, AlertCircle } from 'lucide-react'
+import { Ship, Package, FileText, BarChart2, TrendingUp, AlertCircle, Users } from 'lucide-react'
 
 const authHeaders = () => ({
   'Content-Type': 'application/json',
@@ -14,8 +14,9 @@ const SHIP_STATUS_COLORS = {
   cancelled:  'bg-red-100    text-red-700',
 }
 
-export default function Overview({ onNavigate }) {
-  const [stats, setStats]                   = useState({ shipments: 0, containers: 0, documents: 0, reports: 0 })
+export default function Overview({ user, onNavigate }) {
+  const isAdmin = user?.role === 'admin'
+  const [stats, setStats]                   = useState({ shipments: 0, containers: 0, documents: 0, reports: 0, users: 0 })
   const [recentShipments, setRecentShipments] = useState([])
   const [loading, setLoading]               = useState(true)
   const [error, setError]                   = useState('')
@@ -23,20 +24,24 @@ export default function Overview({ onNavigate }) {
   useEffect(() => {
     async function load() {
       try {
-        const [sRes, cRes, dRes, rRes] = await Promise.all([
+        const requests = [
           fetch('/api/shipments',  { headers: authHeaders() }),
           fetch('/api/containers', { headers: authHeaders() }),
           fetch('/api/documents',  { headers: authHeaders() }),
           fetch('/api/reports',    { headers: authHeaders() }),
-        ])
-        const [shipments, containers, documents, reports] = await Promise.all([
-          sRes.json(), cRes.json(), dRes.json(), rRes.json(),
-        ])
+        ]
+        if (isAdmin) requests.push(fetch('/api/users', { headers: authHeaders() }))
+
+        const responses = await Promise.all(requests)
+        const [shipments, containers, documents, reports, users] = await Promise.all(
+          responses.map(r => r.json())
+        )
         setStats({
           shipments:  Array.isArray(shipments)  ? shipments.length  : 0,
           containers: Array.isArray(containers) ? containers.length : 0,
           documents:  Array.isArray(documents)  ? documents.length  : 0,
           reports:    Array.isArray(reports)    ? reports.length    : 0,
+          users:      Array.isArray(users)      ? users.length      : 0,
         })
         setRecentShipments(Array.isArray(shipments) ? shipments.slice(0, 6) : [])
       } catch {
@@ -46,13 +51,14 @@ export default function Overview({ onNavigate }) {
       }
     }
     load()
-  }, [])
+  }, [isAdmin])
 
   const statCards = [
     { label: 'Total Shipments',    value: stats.shipments,  Icon: Ship,      bg: 'bg-blue-50',   fg: 'text-[#0B3D91]', view: 'shipments'  },
     { label: 'Containers in Port', value: stats.containers, Icon: Package,   bg: 'bg-green-50',  fg: 'text-green-600', view: 'containers' },
     { label: 'Active Documents',   value: stats.documents,  Icon: FileText,  bg: 'bg-amber-50',  fg: 'text-amber-600', view: 'documents'  },
     { label: 'Reports Generated',  value: stats.reports,    Icon: BarChart2, bg: 'bg-purple-50', fg: 'text-purple-600',view: 'reports'    },
+    ...(isAdmin ? [{ label: 'Registered Users', value: stats.users, Icon: Users, bg: 'bg-rose-50', fg: 'text-rose-600', view: 'users' }] : []),
   ]
 
   if (loading) {
