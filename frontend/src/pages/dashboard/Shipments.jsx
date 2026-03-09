@@ -22,7 +22,7 @@ const STATUS_COLORS = {
   cancelled: 'bg-red-100    text-red-700',
 }
 
-const EMPTY = { tracking_number: '', vessel_name: '', origin: '', destination: '', status: 'pending', estimated_arrival: '' }
+const EMPTY = { tracking_number: '', vessel_name: '', origin: '', destination: '', status: 'pending', estimated_arrival: '', actual_arrival: '' }
 
 export default function ShipmentsView({ user }) {
   const [records, setRecords]     = useState([])
@@ -71,6 +71,7 @@ export default function ShipmentsView({ user }) {
       destination:       r.destination,
       status:            r.status,
       estimated_arrival: r.estimated_arrival ? r.estimated_arrival.slice(0, 10) : '',
+      actual_arrival:    r.actual_arrival    ? r.actual_arrival.slice(0, 10)    : '',
     })
     setFormError('')
     setShowModal(true)
@@ -89,7 +90,12 @@ export default function ShipmentsView({ user }) {
     try {
       const url    = editing ? `/api/shipments/${editing}` : '/api/shipments'
       const method = editing ? 'PUT' : 'POST'
-      const res    = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(form) })
+      const payload = editing
+        ? { vessel_name: form.vessel_name, origin: form.origin, destination: form.destination,
+            status: form.status, estimated_arrival: form.estimated_arrival || null,
+            actual_arrival: form.actual_arrival || null }
+        : form
+      const res    = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(payload) })
       const data   = await res.json()
       if (!res.ok) { setFormError(data.message || 'Save failed.'); return }
       setShowModal(false)
@@ -166,6 +172,7 @@ export default function ShipmentsView({ user }) {
                   <th className="px-5 py-3 text-left font-medium">Destination</th>
                   <th className="px-5 py-3 text-left font-medium">Status</th>
                   <th className="px-5 py-3 text-left font-medium">ETA</th>
+                  <th className="px-5 py-3 text-left font-medium">Actual Arrival</th>
                   <th className="px-5 py-3 text-left font-medium">Added By</th>
                   {canEdit && <th className="px-5 py-3 text-right font-medium">Actions</th>}
                 </tr>
@@ -184,6 +191,9 @@ export default function ShipmentsView({ user }) {
                     </td>
                     <td className="px-5 py-3 text-gray-500">
                       {r.estimated_arrival ? new Date(r.estimated_arrival).toLocaleDateString() : '—'}
+                    </td>
+                    <td className="px-5 py-3 text-gray-500">
+                      {r.actual_arrival ? new Date(r.actual_arrival).toLocaleDateString() : '—'}
                     </td>
                     <td className="px-5 py-3 text-gray-500">{r.created_by_name || '—'}</td>
                     {canEdit && (
@@ -314,6 +324,17 @@ export default function ShipmentsView({ user }) {
                     type="date"
                     name="estimated_arrival"
                     value={form.estimated_arrival}
+                    onChange={handleChange}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm
+                               focus:outline-none focus:ring-2 focus:ring-[#0B3D91]/30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Actual Arrival</label>
+                  <input
+                    type="date"
+                    name="actual_arrival"
+                    value={form.actual_arrival}
                     onChange={handleChange}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm
                                focus:outline-none focus:ring-2 focus:ring-[#0B3D91]/30"

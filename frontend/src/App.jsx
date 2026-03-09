@@ -12,6 +12,8 @@ import FutureFeaturesPage from './pages/FutureFeatures'
 import ContactPage from './pages/Contact'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
 
 function App() {
@@ -31,6 +33,8 @@ function App() {
         {/* Auth pages — no shared layout */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Protected route — redirects to /login if not authenticated */}
         <Route
