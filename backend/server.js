@@ -1,5 +1,6 @@
 const express = require('express')
 const cors    = require('cors')
+const path    = require('path')
 require('dotenv').config()
 
 // Import database connection (establishes + tests pool on startup)
@@ -21,6 +22,9 @@ const PORT = process.env.PORT || 5000
 app.use(cors({ origin: 'http://localhost:5173', credentials: true }))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+
+// ── Serve uploaded files ─────────────────────────────────────
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 
 // ── Routes ──────────────────────────────────────────────────
 app.use('/api/auth',       authRoutes)
