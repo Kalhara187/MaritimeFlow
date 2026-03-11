@@ -13,7 +13,7 @@ function auth(roles = []) {
       return res.status(401).json({ message: 'No token provided. Please log in.' })
 
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret')
+      const decoded = jwt.verify(token, process.env.JWT_SECRET)
       req.user = decoded
 
       if (roles.length > 0 && !roles.includes(decoded.role)) {

@@ -85,6 +85,30 @@ router.post('/', auth(['admin', 'operator']), upload.single('file'), async (req,
   }
 })
 
+// PUT /api/documents/:id  — update metadata only (no file replacement)
+router.put('/:id', auth(['admin', 'operator']), async (req, res) => {
+  const { doc_type, file_name, shipment_id } = req.body
+  if (!doc_type && !file_name && shipment_id === undefined)
+    return res.status(400).json({ message: 'Provide at least one field to update.' })
+
+  try {
+    const [rows] = await db.query('SELECT id FROM documents WHERE id = ?', [req.params.id])
+    if (!rows.length) return res.status(404).json({ message: 'Document not found.' })
+
+    const fields = []
+    const values = []
+    if (doc_type)             { fields.push('doc_type = ?');    values.push(doc_type) }
+    if (file_name)            { fields.push('file_name = ?');   values.push(file_name) }
+    if (shipment_id !== undefined) { fields.push('shipment_id = ?'); values.push(shipment_id || null) }
+
+    values.push(req.params.id)
+    await db.query(`UPDATE documents SET ${fields.join(', ')} WHERE id = ?`, values)
+    res.json({ message: 'Document updated.' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
 // DELETE /api/documents/:id
 router.delete('/:id', auth(['admin']), async (req, res) => {
   try {
