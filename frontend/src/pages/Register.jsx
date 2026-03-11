@@ -8,7 +8,6 @@ const API_BASE = '/api'
 const ROLES = [
   { value: 'viewer',   label: 'Viewer'   },
   { value: 'operator', label: 'Operator' },
-  { value: 'admin',    label: 'Admin'    },
 ]
 
 const Register = () => {

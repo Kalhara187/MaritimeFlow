@@ -1,7 +1,19 @@
-const router  = require('express').Router()
-const bcrypt  = require('bcryptjs')
-const jwt     = require('jsonwebtoken')
-const db      = require('../config/db')
+const router     = require('express').Router()
+const bcrypt     = require('bcryptjs')
+const jwt        = require('jsonwebtoken')
+const nodemailer = require('nodemailer')
+const db         = require('../config/db')
+
+// ── Nodemailer transporter ────────────────────────────────────
+const transporter = nodemailer.createTransport({
+  host:   process.env.EMAIL_HOST   || 'smtp.gmail.com',
+  port:   Number(process.env.EMAIL_PORT)   || 587,
+  secure: process.env.EMAIL_SECURE === 'true',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+})
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
@@ -55,7 +67,7 @@ router.post('/login', async (req, res) => {
 
     const token = jwt.sign(
       { id: user.id, role: user.role },
-      process.env.JWT_SECRET || 'secret',
+      process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     )
     res.json({
@@ -85,13 +97,34 @@ router.post('/forgot-password', async (req, res) => {
     const sig = user.password.slice(-8)
     const resetToken = jwt.sign(
       { id: user.id, purpose: 'reset', sig },
-      process.env.JWT_SECRET || 'secret',
+      process.env.JWT_SECRET,
       { expiresIn: '15m' }
     )
-    res.json({
-      message: 'A password reset link has been generated. In production this would be emailed.',
-      resetToken,
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+    const resetLink   = `${frontendUrl}/reset-password?token=${encodeURIComponent(resetToken)}`
+
+    await transporter.sendMail({
+      from:    process.env.EMAIL_FROM || process.env.EMAIL_USER,
+      to:      email,
+      subject: 'MaritimeFlow — Password Reset Request',
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+          <h2 style="color:#0B3D91">Reset Your Password</h2>
+          <p>We received a request to reset the password for your MaritimeFlow account.</p>
+          <p>Click the button below to set a new password. This link expires in <strong>15 minutes</strong>.</p>
+          <a href="${resetLink}"
+             style="display:inline-block;margin:16px 0;padding:12px 24px;
+                    background:#0B3D91;color:#fff;border-radius:8px;
+                    text-decoration:none;font-weight:600">
+            Reset Password
+          </a>
+          <p style="color:#888;font-size:12px">If you did not request this, you can safely ignore this email.</p>
+        </div>
+      `,
     })
+
+    res.json({ message: 'A password reset link has been sent to your email address.' })
   } catch (err) {
     res.status(500).json({ message: err.message })
   }
@@ -109,7 +142,7 @@ router.post('/reset-password', async (req, res) => {
   try {
     let decoded
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret')
+      decoded = jwt.verify(token, process.env.JWT_SECRET)
     } catch {
       return res.status(400).json({ message: 'Reset link is invalid or has expired. Please request a new one.' })
     }

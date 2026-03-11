@@ -1,16 +1,15 @@
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Anchor, Mail, ArrowRight, KeyRound } from 'lucide-react'
+import { Anchor, Mail, ArrowRight, CheckCircle } from 'lucide-react'
 
 const API_BASE = '/api'
 
 const ForgotPassword = () => {
-  const navigate = useNavigate()
   const [email, setEmail]     = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
-  const [resetToken, setResetToken] = useState('')
+  const [sent, setSent]       = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -25,7 +24,7 @@ const ForgotPassword = () => {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.message || 'Request failed.'); return }
-      setResetToken(data.resetToken)
+      setSent(true)
     } catch {
       setError('Unable to reach the server. Please check your connection.')
     } finally {
@@ -61,25 +60,15 @@ const ForgotPassword = () => {
             </div>
           )}
 
-          {resetToken ? (
-            <div className="space-y-4">
-              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-4">
-                <p className="text-green-700 text-sm font-medium mb-2">Reset link generated!</p>
-                <p className="text-gray-500 text-xs mb-3">
-                  In production this would be emailed. Copy the token below to reset your password.
-                </p>
-                <div className="bg-gray-100 rounded-lg p-3 break-all text-xs font-mono text-gray-700 select-all">
-                  {resetToken}
-                </div>
-              </div>
-              <button
-                onClick={() => navigate(`/reset-password?token=${encodeURIComponent(resetToken)}`)}
-                className="w-full bg-[#0B3D91] hover:bg-[#0a3480] text-white font-semibold
-                           py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
-              >
-                <KeyRound className="w-4 h-4" />
-                Reset Password Now
-              </button>
+          {sent ? (
+            <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-6 flex flex-col items-center text-center gap-3">
+              <CheckCircle className="w-10 h-10 text-green-500" />
+              <p className="text-green-700 font-semibold">Check your email</p>
+              <p className="text-gray-500 text-sm">
+                A password reset link has been sent to <strong>{email}</strong>.
+                Please check your inbox (and spam folder) — the link expires in{' '}
+                <strong>15 minutes</strong>.
+              </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
