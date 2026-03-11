@@ -1,14 +1,14 @@
 -- =============================================================
---  PortSync Lanka — Database Initialisation Script
---  Database : portsync_lanka
+--  MaritimeFlow — Database Initialisation Script
+--  Database : maritimeflow
 --  MySQL    : localhost:3306  |  User: root  |  Password: (none)
 -- =============================================================
 
-CREATE DATABASE IF NOT EXISTS portsync_lanka
+CREATE DATABASE IF NOT EXISTS maritimeflow
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
-USE portsync_lanka;
+USE maritimeflow;
 
 -- -----------------------------------------------------------
 -- Users
