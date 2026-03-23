@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react'
-import { Ship, Package, FileText, BarChart2, TrendingUp, AlertCircle, Users } from 'lucide-react'
-
-const authHeaders = () => ({
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
-})
+import { Ship, Package, FileText, BarChart2, TrendingUp, AlertCircle, Users, PieChart } from 'lucide-react'
+import {
+  LineChart, Line, BarChart, Bar, PieChart as RechartsPie, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts'
+import { LoadingSpinner } from '../../components/UIComponents'
+import { api } from '../../utils/api'
 
 const SHIP_STATUS_COLORS = {
   pending:    'bg-yellow-100 text-yellow-700',
@@ -14,60 +15,87 @@ const SHIP_STATUS_COLORS = {
   cancelled:  'bg-red-100    text-red-700',
 }
 
+const CHART_COLORS = ['#0B3D91', '#1E90FF', '#FFB534', '#10B981', '#EF4444']
+
 export default function Overview({ user, onNavigate }) {
   const isAdmin = user?.role === 'admin'
-  const [stats, setStats]                   = useState({ shipments: 0, containers: 0, documents: 0, reports: 0, users: 0 })
+  const [stats, setStats] = useState({
+    shipments: { total: 0, pending: 0, in_transit: 0, arrived: 0, delivered: 0 },
+    containers: { total: 0, at_sea: 0, at_port: 0, cleared: 0, released: 0 },
+    documents: 0,
+    users: 0,
+  })
+  const [trends, setTrends] = useState([])
+  const [containerTypes, setContainerTypes] = useState([])
+  const [portActivity, setPortActivity] = useState({ origins: [], destinations: [] })
   const [recentShipments, setRecentShipments] = useState([])
-  const [loading, setLoading]               = useState(true)
-  const [error, setError]                   = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     async function load() {
       try {
-        const requests = [
-          fetch('/api/shipments',  { headers: authHeaders() }),
-          fetch('/api/containers', { headers: authHeaders() }),
-          fetch('/api/documents',  { headers: authHeaders() }),
-          fetch('/api/reports',    { headers: authHeaders() }),
-        ]
-        if (isAdmin) requests.push(fetch('/api/users', { headers: authHeaders() }))
+        const [statsRes, trendsRes, typesRes, activityRes, shipmentsRes] = await Promise.all([
+          api.dashboard.stats(),
+          api.dashboard.trends(),
+          api.dashboard.containerTypes(),
+          api.dashboard.portActivity(),
+          api.shipments.list({ limit: 6 }),
+        ])
 
-        const responses = await Promise.all(requests)
-        const [shipments, containers, documents, reports, users] = await Promise.all(
-          responses.map(r => r.json())
-        )
-        setStats({
-          shipments:  Array.isArray(shipments)  ? shipments.length  : 0,
-          containers: Array.isArray(containers) ? containers.length : 0,
-          documents:  Array.isArray(documents)  ? documents.length  : 0,
-          reports:    Array.isArray(reports)    ? reports.length    : 0,
-          users:      Array.isArray(users)      ? users.length      : 0,
+        setStats(statsRes.data)
+        setTrends((trendsRes.data || []).slice(0, 30))
+        setContainerTypes(typesRes.data || [])
+        setPortActivity({
+          origins: activityRes.data?.top_origins || [],
+          destinations: activityRes.data?.top_destinations || [],
         })
-        setRecentShipments(Array.isArray(shipments) ? shipments.slice(0, 6) : [])
-      } catch {
-        setError('Failed to load dashboard data. Please refresh.')
+
+        const shipmentData = shipmentsRes.data
+        if (shipmentData?.data) {
+          setRecentShipments(shipmentData.data.slice(0, 6))
+        } else if (Array.isArray(shipmentData)) {
+          setRecentShipments(shipmentData.slice(0, 6))
+        }
+      } catch (e) {
+        setError(e.message || 'Failed to load dashboard data.')
       } finally {
         setLoading(false)
       }
     }
     load()
-  }, [isAdmin])
-
-  const statCards = [
-    { label: 'Total Shipments',    value: stats.shipments,  Icon: Ship,      bg: 'bg-blue-50',   fg: 'text-[#0B3D91]', view: 'shipments'  },
-    { label: 'Containers in Port', value: stats.containers, Icon: Package,   bg: 'bg-green-50',  fg: 'text-green-600', view: 'containers' },
-    { label: 'Active Documents',   value: stats.documents,  Icon: FileText,  bg: 'bg-amber-50',  fg: 'text-amber-600', view: 'documents'  },
-    { label: 'Reports Generated',  value: stats.reports,    Icon: BarChart2, bg: 'bg-purple-50', fg: 'text-purple-600',view: 'reports'    },
-    ...(isAdmin ? [{ label: 'Registered Users', value: stats.users, Icon: Users, bg: 'bg-rose-50', fg: 'text-rose-600', view: 'users' }] : []),
-  ]
+  }, [])
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24 text-gray-400">
-        <span className="text-sm">Loading overview…</span>
+      <div className="flex flex-col items-center justify-center py-24">
+        <LoadingSpinner />
+        <p className="text-gray-400 text-sm mt-4">Loading overview…</p>
       </div>
     )
   }
+
+  const statCards = [
+    { label: 'Total Shipments', value: stats.shipments?.total || 0, Icon: Ship, bg: 'bg-blue-50', fg: 'text-[#0B3D91]', view: 'shipments' },
+    { label: 'Containers', value: stats.containers?.total || 0, Icon: Package, bg: 'bg-green-50', fg: 'text-green-600', view: 'containers' },
+    { label: 'Documents', value: stats.documents || 0, Icon: FileText, bg: 'bg-amber-50', fg: 'text-amber-600', view: 'documents' },
+    { label: 'Reports', value: stats.documents || 0, Icon: BarChart2, bg: 'bg-purple-50', fg: 'text-purple-600', view: 'reports' },
+    ...(isAdmin ? [{ label: 'Users', value: stats.users || 0, Icon: Users, bg: 'bg-rose-50', fg: 'text-rose-600', view: 'users' }] : []),
+  ]
+
+  const shipmentStatusData = [
+    { name: 'Pending', value: stats.shipments?.pending || 0 },
+    { name: 'In Transit', value: stats.shipments?.in_transit || 0 },
+    { name: 'Arrived', value: stats.shipments?.arrived || 0 },
+    { name: 'Delivered', value: stats.shipments?.delivered || 0 },
+  ].filter(d => d.value > 0)
+
+  const containerStatusData = [
+    { name: 'At Sea', value: stats.containers?.at_sea || 0 },
+    { name: 'At Port', value: stats.containers?.at_port || 0 },
+    { name: 'Cleared', value: stats.containers?.cleared || 0 },
+    { name: 'Released', value: stats.containers?.released || 0 },
+  ].filter(d => d.value > 0)
 
   return (
     <div className="space-y-6">
@@ -96,6 +124,122 @@ export default function Overview({ user, onNavigate }) {
             </div>
           </button>
         ))}
+      </div>
+
+      {/* Charts Row 1 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Shipment Status Pie */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <PieChart className="w-4 h-4 text-[#0B3D91]" />
+            Shipment Status Distribution
+          </h3>
+          {shipmentStatusData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <RechartsPie data={shipmentStatusData} cx="50%" cy="50%" outerRadius={80} label>
+                {shipmentStatusData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                ))}
+              </RechartsPie>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-center text-gray-400 py-8">No shipment data</p>
+          )}
+        </div>
+
+        {/* Container Status Pie */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <PieChart className="w-4 h-4 text-green-600" />
+            Container Status Distribution
+          </h3>
+          {containerStatusData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <RechartsPie data={containerStatusData} cx="50%" cy="50%" outerRadius={80} label>
+                {containerStatusData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                ))}
+              </RechartsPie>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-center text-gray-400 py-8">No container data</p>
+          )}
+        </div>
+      </div>
+
+      {/* Trends Chart */}
+      {trends.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-[#0B3D91]" />
+            Shipment Trends (Last 30 Days)
+          </h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={trends}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="total" stroke="#0B3D91" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="in_transit" stroke="#1E90FF" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="delivered" stroke="#10B981" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Port Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Origins */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <h3 className="font-semibold text-gray-900 mb-4">Top Origin Ports</h3>
+          {portActivity.origins.length > 0 ? (
+            <div className="space-y-3">
+              {portActivity.origins.slice(0, 5).map((port, idx) => (
+                <div key={idx} className="flex items-center justify-between">
+                  <span className="text-gray-700">{port.port}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-40 bg-gray-100 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-[#0B3D91] h-full"
+                        style={{ width: `${(port.shipments / Math.max(...portActivity.origins.map(p => p.shipments))) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-sm text-gray-500 w-10 text-right">{port.shipments}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-gray-400 py-8">No data</p>
+          )}
+        </div>
+
+        {/* Top Destinations */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <h3 className="font-semibold text-gray-900 mb-4">Top Destination Ports</h3>
+          {portActivity.destinations.length > 0 ? (
+            <div className="space-y-3">
+              {portActivity.destinations.slice(0, 5).map((port, idx) => (
+                <div key={idx} className="flex items-center justify-between">
+                  <span className="text-gray-700">{port.port}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-40 bg-gray-100 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-green-600 h-full"
+                        style={{ width: `${(port.shipments / Math.max(...portActivity.destinations.map(p => p.shipments))) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-sm text-gray-500 w-10 text-right">{port.shipments}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-gray-400 py-8">No data</p>
+          )}
+        </div>
       </div>
 
       {/* Recent shipments */}

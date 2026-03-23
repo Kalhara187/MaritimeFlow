@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react'
-import { Plus, Edit2, Trash2, X, Search, Package } from 'lucide-react'
-
-const authHeaders = () => ({
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
-})
+import { Plus, Edit2, Trash2, X, Search, Package, Download, Clock } from 'lucide-react'
+import { useToast } from '../../context/ToastContext'
+import api from '../../utils/api'
+import { exportToCSV } from '../../utils/helpers'
+import { LoadingSpinner, Badge } from '../../components/UIComponents'
 
 const STATUSES = ['at_sea', 'at_port', 'under_inspection', 'cleared', 'released']
 const STATUS_LABELS = {
@@ -35,6 +34,7 @@ const TYPE_LABELS = {
 const EMPTY = { container_number: '', shipment_id: '', type: '20ft', weight_kg: '', status: 'at_port' }
 
 export default function ContainersView({ user }) {
+  const { toast } = useToast()
   const [records, setRecords]       = useState([])
   const [shipments, setShipments]   = useState([])
   const [loading, setLoading]       = useState(true)
@@ -42,10 +42,13 @@ export default function ContainersView({ user }) {
   const [search, setSearch]         = useState('')
   const [filterStatus, setFilter]   = useState('')
   const [showModal, setShowModal]   = useState(false)
+  const [showHistory, setShowHistory] = useState(null)
   const [editing, setEditing]       = useState(null)
   const [form, setForm]             = useState(EMPTY)
   const [saving, setSaving]         = useState(false)
   const [formError, setFormError]   = useState('')
+  const [history, setHistory]       = useState([])
+  const [historyLoading, setHistoryLoading] = useState(false)
 
   const canEdit   = user.role === 'admin' || user.role === 'operator'
   const canDelete = user.role === 'admin'
@@ -54,16 +57,16 @@ export default function ContainersView({ user }) {
     setLoading(true)
     setError('')
     try {
-      const [cRes, sRes] = await Promise.all([
-        fetch('/api/containers', { headers: authHeaders() }),
-        fetch('/api/shipments',  { headers: authHeaders() }),
+      const [cData, sData] = await Promise.all([
+        api.containers.list(),
+        api.shipments.list(),
       ])
-      const [cData, sData] = await Promise.all([cRes.json(), sRes.json()])
-      if (!cRes.ok) throw new Error(cData.message)
-      setRecords(Array.isArray(cData) ? cData : [])
-      setShipments(Array.isArray(sData) ? sData : [])
+      setRecords(Array.isArray(cData.data) ? cData.data : [])
+      setShipments(Array.isArray(sData.data) ? sData.data : [])
     } catch (e) {
-      setError(e.message || 'Failed to load containers.')
+      const msg = e.message || 'Failed to load containers.'
+      setError(msg)
+      toast({ type: 'error', message: msg })
     } finally {
       setLoading(false)
     }
@@ -91,6 +94,19 @@ export default function ContainersView({ user }) {
     setShowModal(true)
   }
 
+  const openHistory = async (id) => {
+    setShowHistory(id)
+    setHistoryLoading(true)
+    try {
+      const { data } = await api.containers.getHistory(id)
+      setHistory(Array.isArray(data) ? data : [])
+    } catch (e) {
+      toast({ type: 'error', message: 'Failed to load history' })
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
   const handleChange = e => setForm(p => ({ ...p, [e.target.name]: e.target.value }))
 
   async function handleSubmit(e) {
@@ -107,15 +123,17 @@ export default function ContainersView({ user }) {
         shipment_id: form.shipment_id ? parseInt(form.shipment_id) : null,
         weight_kg:   form.weight_kg   ? parseFloat(form.weight_kg) : null,
       }
-      const url    = editing ? `/api/containers/${editing}` : '/api/containers'
-      const method = editing ? 'PUT' : 'POST'
-      const res    = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(payload) })
-      const data   = await res.json()
-      if (!res.ok) { setFormError(data.message || 'Save failed.'); return }
+      if (editing) {
+        await api.containers.update(editing, payload)
+        toast({ type: 'success', message: 'Container updated successfully' })
+      } else {
+        await api.containers.create(payload)
+        toast({ type: 'success', message: 'Container created successfully' })
+      }
       setShowModal(false)
       load()
-    } catch {
-      setFormError('Network error. Please try again.')
+    } catch (e) {
+      setFormError(e.message || 'Save failed.')
     } finally {
       setSaving(false)
     }
@@ -124,11 +142,29 @@ export default function ContainersView({ user }) {
   async function handleDelete(id) {
     if (!window.confirm('Delete this container? This cannot be undone.')) return
     try {
-      const res = await fetch(`/api/containers/${id}`, { method: 'DELETE', headers: authHeaders() })
-      if (!res.ok) { const d = await res.json(); setError(d.message || 'Delete failed.'); return }
+      await api.containers.delete(id)
+      toast({ type: 'success', message: 'Container deleted successfully' })
       load()
-    } catch {
-      setError('Failed to delete container.')
+    } catch (e) {
+      const msg = e.message || 'Failed to delete container.'
+      setError(msg)
+      toast({ type: 'error', message: msg })
+    }
+  }
+
+  const handleExport = () => {
+    try {
+      const data = filtered.map(r => ({
+        'Container #': r.container_number,
+        'Shipment': r.tracking_number || '—',
+        'Type': TYPE_LABELS[r.type] || r.type,
+        'Weight (kg)': r.weight_kg !== null ? Number(r.weight_kg).toLocaleString() : '—',
+        'Status': STATUS_LABELS[r.status] || r.status,
+      }))
+      exportToCSV(data, 'containers.csv')
+      toast({ type: 'success', message: 'Containers exported successfully' })
+    } catch (e) {
+      toast({ type: 'error', message: 'Export failed' })
     }
   }
 
@@ -166,15 +202,26 @@ export default function ContainersView({ user }) {
           </select>
         </div>
 
-        {canEdit && (
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-2 bg-[#0B3D91] text-white px-4 py-2 rounded-lg
-                       text-sm font-medium hover:bg-[#0a3580] transition-colors"
-          >
-            <Plus className="w-4 h-4" /> New Container
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {!loading && filtered.length > 0 && (
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded-lg
+                         text-sm font-medium hover:bg-gray-50 transition-colors"
+            >
+              <Download className="w-4 h-4" /> Export CSV
+            </button>
+          )}
+          {canEdit && (
+            <button
+              onClick={openCreate}
+              className="flex items-center gap-2 bg-[#0B3D91] text-white px-4 py-2 rounded-lg
+                         text-sm font-medium hover:bg-[#0a3580] transition-colors"
+            >
+              <Plus className="w-4 h-4" /> New Container
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -204,7 +251,9 @@ export default function ContainersView({ user }) {
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="py-16 text-center text-gray-400 text-sm">Loading containers…</div>
+          <div className="py-16 flex items-center justify-center">
+            <LoadingSpinner />
+          </div>
         ) : filtered.length === 0 ? (
           <div className="py-16 text-center text-gray-400 text-sm">
             {search || filterStatus ? 'No containers match your filters.' : canEdit ? 'No containers yet. Click "New Container" to add one.' : 'No container records found.'}
@@ -219,6 +268,7 @@ export default function ContainersView({ user }) {
                   <th className="px-5 py-3 text-left font-medium">Type</th>
                   <th className="px-5 py-3 text-left font-medium">Weight (kg)</th>
                   <th className="px-5 py-3 text-left font-medium">Status</th>
+                  <th className="px-5 py-3 text-left font-medium">History</th>
                   {canEdit && <th className="px-5 py-3 text-right font-medium">Actions</th>}
                 </tr>
               </thead>
@@ -232,9 +282,16 @@ export default function ContainersView({ user }) {
                       {r.weight_kg !== null ? Number(r.weight_kg).toLocaleString() : '—'}
                     </td>
                     <td className="px-5 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[r.status] || 'bg-gray-100 text-gray-600'}`}>
-                        {STATUS_LABELS[r.status] || r.status}
-                      </span>
+                      <Badge status={r.status} type="container" />
+                    </td>
+                    <td className="px-5 py-3">
+                      <button
+                        onClick={() => openHistory(r.id)}
+                        title="View history"
+                        className="p-1.5 text-gray-400 hover:text-[#0B3D91] hover:bg-blue-50 rounded-lg transition-colors"
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                      </button>
                     </td>
                     {canEdit && (
                       <td className="px-5 py-3">
@@ -248,6 +305,23 @@ export default function ContainersView({ user }) {
                           </button>
                           {canDelete && (
                             <button
+                              onClick={() => handleDelete(r.id)}
+                              title="Delete"
+                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
                               onClick={() => handleDelete(r.id)}
                               title="Delete"
                               className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -388,6 +462,55 @@ export default function ContainersView({ user }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* History Modal */}
+      {showHistory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[#0B3D91]" />
+                <h3 className="font-semibold text-gray-800">Container Status History</h3>
+              </div>
+              <button
+                onClick={() => setShowHistory(null)}
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+            <div className="px-6 py-4">
+              {historyLoading ? (
+                <div className="py-8 flex items-center justify-center">
+                  <LoadingSpinner />
+                </div>
+              ) : history.length === 0 ? (
+                <div className="py-8 text-center text-gray-400 text-sm">No status changes yet.</div>
+              ) : (
+                <div className="space-y-4">
+                  {history.map((h, idx) => (
+                    <div key={idx} className="flex gap-4">
+                      <div className="flex flex-col items-center">
+                        <div className="w-3 h-3 rounded-full bg-[#0B3D91]" />
+                        {idx < history.length - 1 && <div className="w-0.5 h-12 bg-gray-200" />}
+                      </div>
+                      <div className="pb-4">
+                        <div className="flex items-center gap-2">
+                          <Badge status={h.status} type="container" />
+                          <span className="text-xs text-gray-500">
+                            {new Date(h.changed_at).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1">Changed by: {h.changed_by_name || 'System'}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

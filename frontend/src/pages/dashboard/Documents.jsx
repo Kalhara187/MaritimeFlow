@@ -1,10 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { Plus, Trash2, X, Search, FileText, Upload, ExternalLink } from 'lucide-react'
-
-const authHeaders = () => ({
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
-})
+import { Plus, Trash2, X, Search, FileText, Upload, ExternalLink, Download } from 'lucide-react'
+import { useToast } from '../../context/ToastContext'
+import api from '../../utils/api'
+import { LoadingSpinner } from '../../components/UIComponents'
 
 const DOC_TYPES = [
   'Bill of Lading',
@@ -31,6 +29,7 @@ const TYPE_COLORS = {
 const EMPTY = { doc_type: 'Bill of Lading', file_name: '', file_path: '', shipment_id: '' }
 
 export default function DocumentsView({ user }) {
+  const { toast } = useToast()
   const [records, setRecords]     = useState([])
   const [shipments, setShipments] = useState([])
   const [loading, setLoading]     = useState(true)
@@ -39,7 +38,7 @@ export default function DocumentsView({ user }) {
   const [filterType, setFilter]   = useState('')
   const [showModal, setShowModal] = useState(false)
   const [form, setForm]           = useState(EMPTY)
-  const [fileInput, setFileInput] = useState(null)   // selected File object
+  const [fileInput, setFileInput] = useState(null)
   const [saving, setSaving]       = useState(false)
   const [formError, setFormError] = useState('')
   const fileRef                   = useRef(null)
@@ -51,16 +50,16 @@ export default function DocumentsView({ user }) {
     setLoading(true)
     setError('')
     try {
-      const [dRes, sRes] = await Promise.all([
-        fetch('/api/documents', { headers: authHeaders() }),
-        fetch('/api/shipments', { headers: authHeaders() }),
+      const [dData, sData] = await Promise.all([
+        api.documents.list(),
+        api.shipments.list(),
       ])
-      const [dData, sData] = await Promise.all([dRes.json(), sRes.json()])
-      if (!dRes.ok) throw new Error(dData.message)
-      setRecords(Array.isArray(dData) ? dData : [])
-      setShipments(Array.isArray(sData) ? sData : [])
+      setRecords(Array.isArray(dData.data) ? dData.data : [])
+      setShipments(Array.isArray(sData.data) ? sData.data : [])
     } catch (e) {
-      setError(e.message || 'Failed to load documents.')
+      const msg = e.message || 'Failed to load documents.'
+      setError(msg)
+      toast({ type: 'error', message: msg })
     } finally {
       setLoading(false)
     }
@@ -92,38 +91,26 @@ export default function DocumentsView({ user }) {
     setSaving(true)
     setFormError('')
     try {
-      let res, data
       if (fileInput) {
-        // multipart upload
         const fd = new FormData()
-        fd.append('doc_type',    form.doc_type)
-        fd.append('file_name',   form.file_name.trim())
+        fd.append('doc_type', form.doc_type)
+        fd.append('file_name', form.file_name.trim())
         if (form.shipment_id) fd.append('shipment_id', form.shipment_id)
         fd.append('file', fileInput)
-        res  = await fetch('/api/documents', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
-          body: fd,
-        })
+        await api.documents.upload(fd)
       } else {
-        const payload = {
-          doc_type:    form.doc_type,
-          file_name:   form.file_name.trim(),
-          file_path:   form.file_path.trim() || '',
+        await api.documents.create({
+          doc_type: form.doc_type,
+          file_name: form.file_name.trim(),
+          file_path: form.file_path.trim() || '',
           shipment_id: form.shipment_id ? parseInt(form.shipment_id) : null,
-        }
-        res = await fetch('/api/documents', {
-          method: 'POST',
-          headers: authHeaders(),
-          body: JSON.stringify(payload),
         })
       }
-      data = await res.json()
-      if (!res.ok) { setFormError(data.message || 'Save failed.'); return }
+      toast({ type: 'success', message: 'Document saved successfully' })
       setShowModal(false)
       load()
-    } catch {
-      setFormError('Network error. Please try again.')
+    } catch (e) {
+      setFormError(e.message || 'Save failed.')
     } finally {
       setSaving(false)
     }
@@ -132,14 +119,24 @@ export default function DocumentsView({ user }) {
   async function handleDelete(id) {
     if (!window.confirm('Delete this document record? This cannot be undone.')) return
     try {
-      const res = await fetch(`/api/documents/${id}`, { method: 'DELETE', headers: authHeaders() })
-      if (!res.ok) { const d = await res.json(); setError(d.message || 'Delete failed.'); return }
+      await api.documents.delete(id)
+      toast({ type: 'success', message: 'Document deleted successfully' })
       load()
-    } catch {
-      setError('Failed to delete document.')
+    } catch (e) {
+      const msg = e.message || 'Failed to delete document.'
+      setError(msg)
+      toast({ type: 'error', message: msg })
     }
   }
 
+  const handleDownload = (r) => {
+    if (!r.file_path && !r.file_url) {
+      toast({ type: 'warning', message: 'No file available to download' })
+      return
+    }
+    const url = r.file_url || `/api/documents/download/${r.id}`
+    window.open(url, '_blank')
+  }
   const filtered = records.filter(r => {
     const matchSearch = [r.file_name, r.doc_type, r.tracking_number, r.uploaded_by_name]
       .some(v => v?.toLowerCase().includes(search.toLowerCase()))
@@ -192,7 +189,9 @@ export default function DocumentsView({ user }) {
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="py-16 text-center text-gray-400 text-sm">Loading documents…</div>
+          <div className="py-16 flex items-center justify-center">
+            <LoadingSpinner />
+          </div>
         ) : filtered.length === 0 ? (
           <div className="py-16 text-center text-gray-400 text-sm">
             {search || filterType ? 'No documents match your filters.' : canEdit ? 'No documents yet. Click "Add Document" to upload one.' : 'No documents found.'}
@@ -207,8 +206,7 @@ export default function DocumentsView({ user }) {
                   <th className="px-5 py-3 text-left font-medium">Shipment</th>
                   <th className="px-5 py-3 text-left font-medium">Uploaded By</th>
                   <th className="px-5 py-3 text-left font-medium">Date</th>
-                  <th className="px-5 py-3 text-left font-medium">Reference</th>
-                  {canDelete && <th className="px-5 py-3 text-right font-medium">Actions</th>}
+                  <th className="px-5 py-3 text-right font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -225,30 +223,28 @@ export default function DocumentsView({ user }) {
                     <td className="px-5 py-3 text-gray-500">
                       {r.uploaded_at ? new Date(r.uploaded_at).toLocaleDateString() : '—'}
                     </td>
-                    <td className="px-5 py-3 text-xs truncate max-w-[140px]">
-                      {r.file_path
-                        ? r.file_path.startsWith('/uploads/')
-                          ? <a href={r.file_path} target="_blank" rel="noopener noreferrer"
-                               className="flex items-center gap-1 text-[#0B3D91] hover:underline">
-                              <ExternalLink className="w-3 h-3" /> Download
-                            </a>
-                          : <a href={r.file_path} target="_blank" rel="noopener noreferrer"
-                               className="text-[#0B3D91] hover:underline truncate block">
-                              {r.file_path}
-                            </a>
-                        : <span className="text-gray-400">—</span>}
+                    <td className="px-5 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        {(r.file_path || r.file_url) && (
+                          <button
+                            onClick={() => handleDownload(r)}
+                            title="Download"
+                            className="p-1.5 text-gray-400 hover:text-[#0B3D91] hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDelete(r.id)}
+                            title="Delete"
+                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
-                    {canDelete && (
-                      <td className="px-5 py-3 text-right">
-                        <button
-                          onClick={() => handleDelete(r.id)}
-                          title="Delete"
-                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    )}
                   </tr>
                 ))}
               </tbody>

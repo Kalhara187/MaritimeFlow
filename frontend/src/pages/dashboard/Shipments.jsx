@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react'
-import { Plus, Edit2, Trash2, X, Search, Ship } from 'lucide-react'
-
-const authHeaders = () => ({
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
-})
+import { Plus, Edit2, Trash2, X, Search, Ship, Download } from 'lucide-react'
+import { useToast } from '../../context/ToastContext'
+import api from '../../utils/api'
+import { exportToCSV } from '../../utils/helpers'
+import { LoadingSpinner } from '../../components/UIComponents'
 
 const STATUSES  = ['pending', 'in_transit', 'arrived', 'delivered', 'cancelled']
 const STATUS_LABELS = {
@@ -25,6 +24,7 @@ const STATUS_COLORS = {
 const EMPTY = { tracking_number: '', vessel_name: '', origin: '', destination: '', status: 'pending', estimated_arrival: '', actual_arrival: '' }
 
 export default function ShipmentsView({ user }) {
+  const { toast } = useToast()
   const [records, setRecords]     = useState([])
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState('')
@@ -42,12 +42,12 @@ export default function ShipmentsView({ user }) {
     setLoading(true)
     setError('')
     try {
-      const res  = await fetch('/api/shipments', { headers: authHeaders() })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.message)
+      const { data } = await api.shipments.list()
       setRecords(Array.isArray(data) ? data : [])
     } catch (e) {
-      setError(e.message || 'Failed to load shipments.')
+      const msg = e.message || 'Failed to load shipments.'
+      setError(msg)
+      toast({ type: 'error', message: msg })
     } finally {
       setLoading(false)
     }
@@ -88,20 +88,25 @@ export default function ShipmentsView({ user }) {
     setSaving(true)
     setFormError('')
     try {
-      const url    = editing ? `/api/shipments/${editing}` : '/api/shipments'
-      const method = editing ? 'PUT' : 'POST'
-      const payload = editing
-        ? { vessel_name: form.vessel_name, origin: form.origin, destination: form.destination,
-            status: form.status, estimated_arrival: form.estimated_arrival || null,
-            actual_arrival: form.actual_arrival || null }
-        : form
-      const res    = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(payload) })
-      const data   = await res.json()
-      if (!res.ok) { setFormError(data.message || 'Save failed.'); return }
+      if (editing) {
+        await api.shipments.update(editing, {
+          vessel_name: form.vessel_name,
+          origin: form.origin,
+          destination: form.destination,
+          status: form.status,
+          estimated_arrival: form.estimated_arrival || null,
+          actual_arrival: form.actual_arrival || null,
+        })
+        toast({ type: 'success', message: 'Shipment updated successfully' })
+      } else {
+        await api.shipments.create(form)
+        toast({ type: 'success', message: 'Shipment created successfully' })
+      }
       setShowModal(false)
       load()
-    } catch {
-      setFormError('Network error. Please try again.')
+    } catch (e) {
+      const msg = e.message || 'Save failed.'
+      setFormError(msg)
     } finally {
       setSaving(false)
     }
@@ -110,11 +115,32 @@ export default function ShipmentsView({ user }) {
   async function handleDelete(id) {
     if (!window.confirm('Delete this shipment? This cannot be undone.')) return
     try {
-      const res = await fetch(`/api/shipments/${id}`, { method: 'DELETE', headers: authHeaders() })
-      if (!res.ok) { const d = await res.json(); setError(d.message || 'Delete failed.'); return }
+      await api.shipments.delete(id)
+      toast({ type: 'success', message: 'Shipment deleted successfully' })
       load()
-    } catch {
-      setError('Failed to delete shipment.')
+    } catch (e) {
+      const msg = e.message || 'Failed to delete shipment.'
+      setError(msg)
+      toast({ type: 'error', message: msg })
+    }
+  }
+
+  const handleExport = () => {
+    try {
+      const data = filtered.map(r => ({
+        'Tracking #': r.tracking_number,
+        'Vessel': r.vessel_name || '—',
+        'Origin': r.origin,
+        'Destination': r.destination,
+        'Status': STATUS_LABELS[r.status] || r.status,
+        'ETA': r.estimated_arrival ? new Date(r.estimated_arrival).toLocaleDateString() : '—',
+        'Actual Arrival': r.actual_arrival ? new Date(r.actual_arrival).toLocaleDateString() : '—',
+        'Added By': r.created_by_name || '—',
+      }))
+      exportToCSV(data, 'shipments.csv')
+      toast({ type: 'success', message: 'Shipments exported successfully' })
+    } catch (e) {
+      toast({ type: 'error', message: 'Export failed' })
     }
   }
 
@@ -138,15 +164,26 @@ export default function ShipmentsView({ user }) {
                        focus:outline-none focus:ring-2 focus:ring-[#0B3D91]/30"
           />
         </div>
-        {canEdit && (
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-2 bg-[#0B3D91] text-white px-4 py-2 rounded-lg
-                       text-sm font-medium hover:bg-[#0a3580] transition-colors"
-          >
-            <Plus className="w-4 h-4" /> New Shipment
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {!loading && filtered.length > 0 && (
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded-lg
+                         text-sm font-medium hover:bg-gray-50 transition-colors"
+            >
+              <Download className="w-4 h-4" /> Export CSV
+            </button>
+          )}
+          {canEdit && (
+            <button
+              onClick={openCreate}
+              className="flex items-center gap-2 bg-[#0B3D91] text-white px-4 py-2 rounded-lg
+                         text-sm font-medium hover:bg-[#0a3580] transition-colors"
+            >
+              <Plus className="w-4 h-4" /> New Shipment
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -156,7 +193,9 @@ export default function ShipmentsView({ user }) {
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="py-16 text-center text-gray-400 text-sm">Loading shipments…</div>
+          <div className="py-16 flex items-center justify-center">
+            <LoadingSpinner />
+          </div>
         ) : filtered.length === 0 ? (
           <div className="py-16 text-center text-gray-400 text-sm">
             {search ? 'No results match your search.' : canEdit ? 'No shipments yet. Click "New Shipment" to add one.' : 'No shipment records found.'}
