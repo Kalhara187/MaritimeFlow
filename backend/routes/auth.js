@@ -167,4 +167,61 @@ router.post('/reset-password', async (req, res) => {
   }
 })
 
+// POST /api/auth/change-password - authenticated user changes their password
+router.post('/change-password', async (req, res) => {
+  const auth = require('../middleware/auth')
+  const authMiddleware = auth()
+
+  // Extract token from headers
+  const authHeader = req.headers['authorization']
+  const token = authHeader && authHeader.split(' ')[1]
+
+  if (!token) {
+    return res.status(401).json({ message: 'No token provided. Please log in.' })
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    req.user = decoded
+  } catch (err) {
+    return res.status(401).json({ message: 'Invalid or expired token.' })
+  }
+
+  const { current_password, new_password } = req.body
+
+  if (!current_password || !new_password) {
+    return res.status(400).json({ message: 'Current password and new password are required.' })
+  }
+
+  if (new_password.length < 6) {
+    return res.status(400).json({ message: 'New password must be at least 6 characters.' })
+  }
+
+  if (current_password === new_password) {
+    return res.status(400).json({ message: 'New password must be different from current password.' })
+  }
+
+  try {
+    const [rows] = await db.query('SELECT id, password FROM users WHERE id = ?', [req.user.id])
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'User not found.' })
+    }
+
+    const user = rows[0]
+    const match = await bcrypt.compare(current_password, user.password)
+
+    if (!match) {
+      return res.status(401).json({ message: 'Current password is incorrect.' })
+    }
+
+    const hash = await bcrypt.hash(new_password, 10)
+    await db.query('UPDATE users SET password = ? WHERE id = ?', [hash, req.user.id])
+
+    res.json({ message: 'Password changed successfully.' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
 module.exports = router

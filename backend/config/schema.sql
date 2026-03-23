@@ -105,6 +105,24 @@ CREATE TABLE IF NOT EXISTS reports (
   FOREIGN KEY (generated_by) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
+-- -----------------------------------------------------------
+-- Container History (Audit Trail)
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS container_history (
+  id              INT          NOT NULL AUTO_INCREMENT,
+  container_id    INT          NOT NULL,
+  old_status      VARCHAR(50),
+  new_status      VARCHAR(50)  NOT NULL,
+  changed_by      INT,
+  change_reason   TEXT,
+  changed_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  FOREIGN KEY (container_id) REFERENCES containers(id) ON DELETE CASCADE,
+  FOREIGN KEY (changed_by)    REFERENCES users(id)     ON DELETE SET NULL,
+  INDEX idx_container (container_id),
+  INDEX idx_changed_at (changed_at)
+) ENGINE=InnoDB;
+
 -- =============================================================
 -- Migration: run these on existing databases
 -- =============================================================
