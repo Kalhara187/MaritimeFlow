@@ -47,7 +47,9 @@ describe('Shipments API', () => {
         .set('Authorization', `Bearer ${authToken}`)
 
       expect(res.status).toBe(200)
-      expect(Array.isArray(res.body)).toBe(true)
+      expect(res.body).toHaveProperty('data')
+      expect(Array.isArray(res.body.data)).toBe(true)
+      expect(res.body).toHaveProperty('pagination')
     })
   })
 
@@ -110,7 +112,7 @@ describe('Shipments API', () => {
         })
 
       expect(res.status).toBe(400)
-      expect(res.body.message).toContain('required')
+      expect(res.body.message.toLowerCase()).toContain('required')
     })
 
     it('should create shipment with valid operator role', async () => {

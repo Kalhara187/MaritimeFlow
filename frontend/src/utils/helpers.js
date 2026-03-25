@@ -4,7 +4,11 @@
 
 export const formatDate = (dateString) => {
   if (!dateString) return 'N/A'
-  return new Date(dateString).toLocaleDateString()
+  return new Date(dateString).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
 }
 
 export const formatDateTime = (dateString) => {
@@ -15,27 +19,27 @@ export const formatDateTime = (dateString) => {
 export const getStatusColor = (status, type = 'shipment') => {
   if (type === 'shipment') {
     const colors = {
-      pending: 'bg-yellow-100 text-yellow-700',
-      in_transit: 'bg-blue-100 text-blue-700',
-      arrived: 'bg-green-100 text-green-700',
-      delivered: 'bg-emerald-100 text-emerald-700',
-      cancelled: 'bg-red-100 text-red-700',
+      pending: 'bg-yellow-100',
+      in_transit: 'bg-blue-100',
+      arrived: 'bg-green-100',
+      delivered: 'bg-green-100',
+      cancelled: 'bg-red-100',
     }
-    return colors[status] || 'bg-gray-100 text-gray-700'
+    return colors[status] || 'bg-gray-100'
   }
 
   if (type === 'container') {
     const colors = {
-      at_sea: 'bg-blue-100 text-blue-700',
-      at_port: 'bg-yellow-100 text-yellow-700',
-      under_inspection: 'bg-orange-100 text-orange-700',
-      cleared: 'bg-green-100 text-green-700',
-      released: 'bg-emerald-100 text-emerald-700',
+      at_sea: 'bg-blue-100',
+      at_port: 'bg-yellow-100',
+      under_inspection: 'bg-orange-100',
+      cleared: 'bg-green-100',
+      released: 'bg-gray-100',
     }
-    return colors[status] || 'bg-gray-100 text-gray-700'
+    return colors[status] || 'bg-gray-100'
   }
 
-  return 'bg-gray-100 text-gray-700'
+  return 'bg-gray-100'
 }
 
 export const getStatusLabel = (status) => {
@@ -59,8 +63,7 @@ export const getStatusLabel = (status) => {
 
 export const exportToCSV = (data, filename = 'export.csv') => {
   if (!data || data.length === 0) {
-    console.error('No data to export')
-    return
+    return ''
   }
 
   const headers = Object.keys(data[0])
@@ -80,36 +83,47 @@ export const exportToCSV = (data, filename = 'export.csv') => {
   ].join('\n')
 
   const blob = new Blob([csvContent], { type: 'text/csv' })
-  const url = window.URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  window.URL.revokeObjectURL(url)
+  if (window?.URL?.createObjectURL) {
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    window.URL.revokeObjectURL(url)
+  }
+
+  return csvContent
 }
 
 export const formatFileSize = (bytes) => {
-  if (bytes === 0) return '0 Bytes'
+  const safeBytes = Number(bytes)
+  if (!Number.isFinite(safeBytes)) return '0 B'
+  if (safeBytes <= 0) return '0 B'
+
   const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(safeBytes) / Math.log(k))
+  return Math.round((safeBytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
 }
 
 export const getInitials = (name) => {
+  if (!name) return ''
   return name
     .split(' ')
+    .filter(Boolean)
     .map((n) => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2)
 }
 
-export const truncate = (text, length = 50) => {
-  return text.length > length ? text.slice(0, length) + '...' : text
+export const truncate = (text, length = 50, ellipsis = '...') => {
+  if (text === null || text === undefined) return text
+  return text.length > length ? text.slice(0, length) + ellipsis : text
 }
 
 export const validateEmail = (email) => {
+  if (!email || typeof email !== 'string') return false
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
@@ -120,4 +134,30 @@ export const validateUrl = (url) => {
   } catch {
     return false
   }
+}
+
+export const isStrongPassword = (password) => {
+  if (!password || typeof password !== 'string') return false
+
+  return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/.test(password)
+}
+
+export const validatePassword = (password) => isStrongPassword(password)
+
+export const capitalizeWords = (text) => {
+  if (!text) return ''
+  return text
+    .split(' ')
+    .filter((part) => part.length > 0)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
+}
+
+export const calculateDaysSince = (dateInput) => {
+  const inputDate = new Date(dateInput)
+  if (Number.isNaN(inputDate.getTime())) return 0
+
+  const now = new Date()
+  const msDiff = now.getTime() - inputDate.getTime()
+  return Math.floor(msDiff / (1000 * 60 * 60 * 24))
 }

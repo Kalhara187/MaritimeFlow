@@ -322,23 +322,6 @@ export default function ContainersView({ user }) {
           </div>
         )}
       </div>
-                              onClick={() => handleDelete(r.id)}
-                              title="Delete"
-                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
 
       {!loading && (
         <p className="text-xs text-gray-400 text-right">

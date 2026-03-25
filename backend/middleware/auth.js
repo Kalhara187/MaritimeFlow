@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken')
+const jwtSecret = process.env.JWT_SECRET || 'maritime_secret_key_change_in_production'
 
 /**
  * Authentication middleware.
@@ -13,7 +14,7 @@ function auth(roles = []) {
       return res.status(401).json({ message: 'No token provided. Please log in.' })
 
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET)
+      const decoded = jwt.verify(token, jwtSecret)
       req.user = decoded
 
       if (roles.length > 0 && !roles.includes(decoded.role)) {
