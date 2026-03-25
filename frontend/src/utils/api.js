@@ -110,5 +110,3 @@ export const api = {
     delete: (id) => apiClient.delete(`/contact/${id}`),
   },
 }
-
-export default api
