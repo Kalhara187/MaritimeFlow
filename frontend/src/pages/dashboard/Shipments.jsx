@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Plus, Edit2, Trash2, X, Search, Ship, Download } from 'lucide-react'
 import { useToast } from '../../context/ToastContext'
-import api from '../../utils/api'
+import { api } from '../../utils/api'
 import { exportToCSV } from '../../utils/helpers'
 import { LoadingSpinner } from '../../components/UIComponents'
 

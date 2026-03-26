@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { Plus, Trash2, X, Search, FileText, Upload, ExternalLink, Download } from 'lucide-react'
 import { useToast } from '../../context/ToastContext'
-import api from '../../utils/api'
+import { api } from '../../utils/api'
 import { LoadingSpinner } from '../../components/UIComponents'
 
 const DOC_TYPES = [
